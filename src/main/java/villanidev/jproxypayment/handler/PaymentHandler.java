@@ -3,7 +3,7 @@ package villanidev.jproxypayment.handler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import villanidev.jproxypayment.dto.PaymentRequest;
-import villanidev.jproxypayment.service.PaymentQueueService;
+import villanidev.jproxypayment.service.payment.PaymentQueueService;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,7 +15,7 @@ import java.util.concurrent.Executors;
 
 public class PaymentHandler implements HttpHandler {
     private final ExecutorService asyncProcessor = Executors.newFixedThreadPool(
-            15,
+            10,
             Thread.ofVirtual().name("asyncVthread-", 0L).factory()
     );
     private final PaymentQueueService paymentQueueService;
@@ -31,15 +31,23 @@ public class PaymentHandler implements HttpHandler {
             return;
         }
 
-        asyncProcessor.submit(() -> processAsync(exchange));
-        sendResponse(exchange, 202, "");
+        System.out.println("Processing payment request: "+ Thread.currentThread().getName());
+
+        try (exchange; InputStream is = exchange.getRequestBody()) {
+            String requestBody = new String(is.readAllBytes(), StandardCharsets.UTF_8)
+                    .replaceAll("\\s", "");
+
+            asyncProcessor.submit(() -> processAsync(requestBody));
+
+            sendResponse(exchange, 202, "");
+
+        } catch (Exception e) {
+            System.err.println(Thread.currentThread().getName() +" - Error processing payment request: " + e);
+        }
     }
 
-    private void processAsync(HttpExchange exchange) {
-        try (exchange; InputStream is = exchange.getRequestBody()) {
-            String requestBody = new String(is.readAllBytes(), StandardCharsets.UTF_8).replaceAll("\\s", "");
-
-            // Parsing manual otimizado
+    private void processAsync(String requestBody) {
+        try {
             String idStr = requestBody.substring(18, 54);
 
             int amountStart = requestBody.indexOf("\"amount\":") + 9;
@@ -51,7 +59,7 @@ public class PaymentHandler implements HttpHandler {
 
             paymentQueueService.enqueuePayment(new PaymentRequest(correlationId, amount));
         } catch (Exception e) {
-            System.err.println("Error processing payment: " + e.getMessage());
+            System.err.println(Thread.currentThread().getName() +" - Error parsing payment request: " + e);
         }
     }
 

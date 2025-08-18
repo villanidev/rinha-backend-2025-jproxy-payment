@@ -6,7 +6,7 @@
 
     <groupId>villanidev</groupId>
     <artifactId>jproxy-payment</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0</version>
 
     <properties>
         <java.version>21</java.version>
@@ -22,17 +22,29 @@
             <artifactId>jedis</artifactId>
             <version>5.1.0</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-pool2 -->
+        <!-- Used by Jedis -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
             <version>2.12.1</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.16</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-simple -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>2.0.16</version>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Standard Maven plugins -->
+            <!-- Used to compile the sources of this project. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -42,6 +54,7 @@
                     <target>${java.version}</target>
                 </configuration>
             </plugin>
+            <!-- Builds a JAR file from the compiled project classes and resources. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -53,6 +66,21 @@
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+            <!-- Repackages the project classes together with their dependencies into a single uber-jar,
+                optionally renaming classes or removing unused classes. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -6,8 +6,11 @@ RUN mvn dependency:go-offline
 COPY src/ ./src/
 RUN mvn clean package -DskipTests=true
 
-# Spring Boot package stage
-FROM eclipse-temurin:21-jre-alpine
-COPY --from=build app/target/*.jar app.jar
+# App package stage
+FROM eclipse-temurin:21-jre-jammy
+WORKDIR /app
+COPY --from=build /app/target/jproxy-payment-1.0.jar /app/app.jar
+
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+ENTRYPOINT ["java", "-jar", "-XX:+UseZGC", "-Xms128m", "-Xmx128m", "-XX:MaxRAMPercentage=80", "-XX:+UseStringDeduplication", "-XX:MaxGCPauseMillis=5", "-XX:ThreadStackSize=128k", "/app/app.jar"]

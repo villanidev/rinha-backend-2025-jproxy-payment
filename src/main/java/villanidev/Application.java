@@ -1,11 +1,15 @@
 package villanidev;
 
 import com.sun.net.httpserver.HttpServer;
-import villanidev.jproxypayment.cache.RedisCache;
-import villanidev.jproxypayment.config.RedisConfig;
+import villanidev.jproxypayment.cache.RedisCacheClient;
+import villanidev.jproxypayment.cache.RedisConfig;
 import villanidev.jproxypayment.handler.PaymentHandler;
 import villanidev.jproxypayment.handler.SummaryHandler;
-import villanidev.jproxypayment.service.*;
+import villanidev.jproxypayment.service.payment.PaymentQueueService;
+import villanidev.jproxypayment.service.processorgateway.DefaultPaymentProcessor;
+import villanidev.jproxypayment.service.processorgateway.DistributedProcessorSelector;
+import villanidev.jproxypayment.service.processorgateway.FallbackPaymentProcessor;
+import villanidev.jproxypayment.service.scheduler.HealthCheckScheduler;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -14,6 +18,9 @@ import java.time.Instant;
 import java.util.concurrent.Executors;
 
 public class Application {
+
+    private static final int MAIN_SERVER_THREADS = 20;
+
     public static void main(String[] args) throws IOException {
         try {
             Instant start = Instant.now();
@@ -23,7 +30,7 @@ public class Application {
             // Configuração do Redis
             String redisHost = System.getenv("REDIS_HOST");
             RedisConfig redisConfig = new RedisConfig(redisHost);
-            RedisCache redisCache = new RedisCache(redisConfig.getJedisPool());
+            RedisCacheClient redisCacheClient = new RedisCacheClient(redisConfig.getJedisPool());
 
             // Processadores de pagamento
             String defaultProcessorUrl = System.getenv("DEFAULT_PROCESSOR_URL");
@@ -42,7 +49,7 @@ public class Application {
             // Serviços
             PaymentQueueService queueService = new PaymentQueueService(
                     processorSelector,
-                    redisCache,
+                    redisCacheClient,
                     defaultProcessor,
                     fallbackProcessor);
 
@@ -55,11 +62,11 @@ public class Application {
 
             // Handlers
             server.createContext("/payments", new PaymentHandler(queueService));
-            server.createContext("/payments-summary", new SummaryHandler(redisCache));
+            server.createContext("/payments-summary", new SummaryHandler(redisCacheClient));
 
             // Configura a main thread virtual
             server.setExecutor(Executors.newFixedThreadPool(
-                    20,
+                    MAIN_SERVER_THREADS,
                     Thread.ofVirtual().name("mainVthread-", 0L).factory()
             ));
 

@@ -2,7 +2,7 @@ package villanidev.jproxypayment.handler;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import villanidev.jproxypayment.cache.RedisCache;
+import villanidev.jproxypayment.cache.RedisCacheClient;
 import villanidev.jproxypayment.dto.PaymentSummary;
 
 import java.io.IOException;
@@ -12,14 +12,23 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
 public class SummaryHandler implements HttpHandler {
-    private static final String SUMMARY_RESPONSE =
-            "{\"default\":{\"totalRequests\":%d,\"totalAmount\":%.2f}," +
-                    "\"fallback\":{\"totalRequests\":%d,\"totalAmount\":%.2f}}";
+    private static final String SUMMARY_RESPONSE = """
+            {
+                "default": {
+                    "totalRequests": %d,
+                    "totalAmount": %.2f
+                },
+                "fallback": {
+                    "totalRequests": %d,
+                    "totalAmount": %.2f
+                }
+            }
+            """;
 
-    private final RedisCache redisCache;
+    private final RedisCacheClient redisCacheClient;
 
-    public SummaryHandler(RedisCache redisCache) {
-        this.redisCache = redisCache;
+    public SummaryHandler(RedisCacheClient redisCacheClient) {
+        this.redisCacheClient = redisCacheClient;
     }
 
     @Override
@@ -28,6 +37,8 @@ public class SummaryHandler implements HttpHandler {
             sendResponse(exchange, 405, "Method Not Allowed");
             return;
         }
+
+        System.out.println("Processing summary request: "+ Thread.currentThread().getName());
 
         try {
             String query = exchange.getRequestURI().getQuery();
@@ -47,7 +58,7 @@ public class SummaryHandler implements HttpHandler {
                 }
             }
 
-            PaymentSummary summary = redisCache.getSummary(from, to);
+            PaymentSummary summary = redisCacheClient.getSummary(from, to);
             String response = String.format(SUMMARY_RESPONSE,
                     summary.defaultTotalRequests(),
                     summary.defaultTotalAmount(),
@@ -56,7 +67,8 @@ public class SummaryHandler implements HttpHandler {
 
             sendResponse(exchange, 200, response);
         } catch (Exception e) {
-            sendResponse(exchange, 400, "Invalid request");
+            System.err.println(e);
+            sendResponse(exchange, 400, "Bad request");
         }
     }
 
