@@ -65,6 +65,9 @@ services:
       - redis
     ports:
       - "8081:8080"
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       - REDIS_HOST=http://redis:6379
       - INSTANCE_ID=2
